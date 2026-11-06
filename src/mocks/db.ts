@@ -13,7 +13,7 @@ type State = {
   favorites: Record<string, string[]>
 }
 
-const KEY = 'kurio-msw-db-v1'
+const KEY = 'kurio-msw-db-v2'
 // sha256("kurio:Senha@123")
 const SENHA_PADRAO = 'e4f3920e8bfa128140400b690ae0766eb1839007c92bae8962f0113914039cf5'
 
@@ -32,6 +32,7 @@ function seed(): State {
 
 function load(): State {
   try {
+    localStorage.removeItem('kurio-msw-db-v1')
     const raw = localStorage.getItem(KEY)
     if (raw) return JSON.parse(raw) as State
   } catch {

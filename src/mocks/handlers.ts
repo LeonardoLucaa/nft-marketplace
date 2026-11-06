@@ -1,30 +1,70 @@
 import { http, HttpResponse, delay } from 'msw'
-import type { Nft, NftListResponse } from '@/types/api'
+import {
+  CATEGORIES,
+  NETWORKS,
+  type Category,
+  type CatalogTab,
+  type Network,
+  type Nft,
+  type NftFacets,
+  type NftListResponse,
+} from '@/types/api'
 import { db } from './db'
 import { socketHandlers } from './socket'
 
-const PAGE_SIZE = 6
+const PAGE_SIZE = 9
+
+// Converte "1.19" em bigint com 18 casas, para comparar preços sem erro de float
+function toUnits(value: string): bigint {
+  const [inteiro = '0', fracao = ''] = value.trim().split('.')
+  return BigInt(inteiro || '0') * 10n ** 18n + BigInt((fracao + '0'.repeat(18)).slice(0, 18) || '0')
+}
+
+function compareUnits(a: string, b: string) {
+  const x = toUnits(a)
+  const y = toUnits(b)
+  return x < y ? -1 : x > y ? 1 : 0
+}
+
+function buildFacets(list: Nft[]): NftFacets {
+  const categories = Object.fromEntries(CATEGORIES.map((c) => [c, 0])) as Record<Category, number>
+  const networks = Object.fromEntries(NETWORKS.map((n) => [n, 0])) as Record<Network, number>
+  for (const n of list) {
+    categories[n.category] = (categories[n.category] ?? 0) + 1
+    networks[n.network] = (networks[n.network] ?? 0) + 1
+  }
+  return { categories, networks }
+}
 
 export const handlers = [
   http.get('/api/nfts', async ({ request }) => {
     const p = new URL(request.url).searchParams
     const q = (p.get('q') ?? '').toLowerCase()
     const network = p.get('network')
+    const category = p.get('category')
+    const tab = (p.get('tab') ?? 'all') as CatalogTab
     const min = p.get('minPrice')
     const max = p.get('maxPrice')
     const sort = p.get('sort') ?? 'recent'
-    const page = Number(p.get('page') ?? 1)
+    const page = Math.max(1, Number(p.get('page') ?? 1))
 
-    let list: Nft[] = db.nfts.filter(
+    // Filtros base (busca + preço): usados para as contagens das facetas
+    const base = db.nfts.filter(
       (n) =>
         n.name.toLowerCase().includes(q) &&
-        (!network || n.network === network) &&
-        (!min || Number(n.price) >= Number(min)) &&
-        (!max || Number(n.price) <= Number(max)),
+        (!min || compareUnits(n.price, min) >= 0) &&
+        (!max || compareUnits(n.price, max) <= 0),
     )
 
-    if (sort === 'price_asc') list = [...list].sort((a, b) => Number(a.price) - Number(b.price))
-    if (sort === 'price_desc') list = [...list].sort((a, b) => Number(b.price) - Number(a.price))
+    let list: Nft[] = base.filter(
+      (n) =>
+        (!network || n.network === network) &&
+        (!category || n.category === category) &&
+        (tab === 'all' || (tab === 'rare' && n.rare) || (tab === 'onSale' && !!n.oldPrice)),
+    )
+
+    if (sort === 'price_asc') list = [...list].sort((a, b) => compareUnits(a.price, b.price))
+    if (sort === 'price_desc') list = [...list].sort((a, b) => compareUnits(b.price, a.price))
     if (sort === 'recent') list = [...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
     await delay(400)
@@ -34,6 +74,7 @@ export const handlers = [
       total: list.length,
       page,
       pageSize: PAGE_SIZE,
+      facets: buildFacets(base),
     }
     return HttpResponse.json(body)
   }),

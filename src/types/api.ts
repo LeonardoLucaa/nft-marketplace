@@ -1,5 +1,11 @@
 export type Network = "Ethereum" | "Polygon" | "Solana";
+export const NETWORKS: Network[] = ["Ethereum", "Polygon", "Solana"];
+
+export type Category = "Arte" | "Colecionáveis" | "Música" | "Fotografia" | "Games";
+export const CATEGORIES: Category[] = ["Arte", "Colecionáveis", "Música", "Fotografia", "Games"];
+
 export type SortOption = "recent" | "price_asc" | "price_desc";
+export type CatalogTab = "all" | "rare" | "onSale";
 
 export type Edition = { id: string; label: string; available: number };
 
@@ -9,6 +15,7 @@ export type Nft = {
   tokenId: string; // "0042"
   name: string;
   collection: string;
+  category: Category;
   network: Network;
   price: string; // ETH como string decimal: "1.19"
   oldPrice?: string;
@@ -26,10 +33,17 @@ export type Nft = {
 export type NftListQuery = {
   q?: string;
   network?: Network;
+  category?: Category;
+  tab?: CatalogTab;
   minPrice?: string;
   maxPrice?: string;
   sort: SortOption;
   page: number;
+};
+
+export type NftFacets = {
+  categories: Record<Category, number>;
+  networks: Record<Network, number>;
 };
 
 export type NftListResponse = {
@@ -37,6 +51,7 @@ export type NftListResponse = {
   total: number;
   page: number;
   pageSize: number;
+  facets: NftFacets;
 };
 
 export type ApiError = { code: string; message: string; fields?: Record<string, string> };
