@@ -75,6 +75,7 @@ export function useRealtime() {
       qc.setQueriesData({ queryKey: ['nfts'] }, (old: unknown) => patchLista(old, e))
       // o carrinho/cotação dependem do preço: o servidor recalcula o resumo
       qc.invalidateQueries({ queryKey: ['cart'] })
+      qc.invalidateQueries({ queryKey: ['checkout', 'quote'] })
     }
 
     const aoPedidoAtualizado = (order: Order) => {

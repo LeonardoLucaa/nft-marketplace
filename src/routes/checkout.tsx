@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { getToken } from '@/lib/session'
 import { codigoErro, erroDeCampo, mensagemErro } from '@/features/checkout/api'
 import { quoteOptions, useCriarPedido, useQuote } from '@/features/checkout/queries'
+import type { Quote } from '@/types/api'
 
 export const Route = createFileRoute('/checkout')({
   beforeLoad: ({ location }) => {
@@ -28,6 +29,7 @@ function CheckoutPage() {
   const [cupomDigitado, setCupomDigitado] = useState('')
   const [erroCupom, setErroCupom] = useState<string | null>(null)
   const [aplicando, setAplicando] = useState(false)
+  const [avisoPreco, setAvisoPreco] = useState<{ de: string; para: string } | null>(null)
 
   const quote = useQuote(cupom)
   const criar = useCriarPedido()
@@ -35,6 +37,18 @@ function CheckoutPage() {
   // Uma chave por cotação: retries/duplo clique reaproveitam; cotação nova gera chave nova.
   const quoteId = quote.data?.id
   const idempotencyKey = useMemo(() => (quoteId ? crypto.randomUUID() : ''), [quoteId])
+
+  // Detecta cotação nova com total diferente (preço mudou durante o checkout)
+  const anterior = useRef<Quote | null>(null)
+  useEffect(() => {
+    const atual = quote.data
+    if (!atual) return
+    const prev = anterior.current
+    if (prev && prev.id !== atual.id && prev.coupon?.code === atual.coupon?.code && prev.total !== atual.total) {
+      setAvisoPreco({ de: prev.total, para: atual.total })
+    }
+    anterior.current = atual
+  }, [quote.data])
 
   // Não deixa cotação em cache ao sair (evita vazar entre usuários no mesmo navegador)
   useEffect(() => () => qc.removeQueries({ queryKey: ['checkout'] }), [qc])
@@ -56,7 +70,7 @@ function CheckoutPage() {
   }
 
   function finalizar() {
-    if (!quote.data || criar.isPending) return
+    if (!quote.data || criar.isPending || avisoPreco) return
     criar.mutate(
       { quoteId: quote.data.id, idempotencyKey },
       {
@@ -91,11 +105,31 @@ function CheckoutPage() {
   }
 
   const q = quote.data
+  const bloqueado = criar.isPending || quote.isFetching || !!avisoPreco
 
   return (
     <main className="mx-auto grid max-w-5xl gap-8 p-6 md:grid-cols-[1fr_360px]">
       <section aria-labelledby="itens">
         <h1 id="itens" className="mb-4 text-2xl font-bold">Revisar pedido</h1>
+
+        <div role="status" aria-live="polite" className="mb-4">
+          {avisoPreco && (
+            <div className="space-y-2 rounded-lg border border-[#D28A4C] bg-[#241612] p-3 text-sm">
+              <p className="font-semibold text-[#D28A4C]">Os preços mudaram durante o checkout.</p>
+              <p className="text-[#CFB28C]">
+                O total passou de {avisoPreco.de} ETH para {avisoPreco.para} ETH. Revise os valores antes de confirmar.
+              </p>
+              <button
+                type="button"
+                onClick={() => setAvisoPreco(null)}
+                className="rounded-md border border-[#D28A4C] px-3 py-1 text-[#D28A4C]"
+              >
+                Revisei e quero continuar
+              </button>
+            </div>
+          )}
+        </div>
+
         <ul className="space-y-3">
           {q.lines.map((l) => (
             <li key={l.nftId} className="flex items-center gap-4 rounded-xl bg-[#241612] p-3">
@@ -150,10 +184,10 @@ function CheckoutPage() {
 
         <button
           onClick={finalizar}
-          disabled={criar.isPending || quote.isFetching}
+          disabled={bloqueado}
           className="w-full rounded-md bg-[#D28A4C] py-3 font-semibold text-[#140D0A] disabled:opacity-50"
         >
-          {criar.isPending ? 'Enviando pedido…' : 'Confirmar compra'}
+          {criar.isPending ? 'Enviando pedido…' : avisoPreco ? 'Revise os novos valores' : 'Confirmar compra'}
         </button>
       </aside>
     </main>
