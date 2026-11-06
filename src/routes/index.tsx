@@ -1,21 +1,33 @@
-import { useEffect, useState, type FormEvent } from 'react'
 import { createFileRoute, type SearchSchemaInput } from '@tanstack/react-router'
 import { keepPreviousData, queryOptions, useQuery } from '@tanstack/react-query'
+import { FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi'
 import { listNfts } from '@/features/nfts/api'
 import { NftCard } from '@/features/nfts/NftCard'
 import { NftCardSkeleton } from '@/features/nfts/NftCardSkeleton'
-import type { Network, SortOption } from '@/types/api'
+import { Hero } from '@/features/nfts/Hero'
+import { CatalogFilters, FeaturedNft, MobileFilters, type FiltersValue } from '@/features/nfts/CatalogSidebar'
+import { MintJournal, PromoBanners } from '@/features/nfts/HomeSections'
+import { CATEGORIES, NETWORKS, type CatalogTab, type Category, type Network, type SortOption } from '@/types/api'
 
-const NETWORKS: Network[] = ['Ethereum', 'Polygon', 'Solana']
+const CONTAINER = 'mx-auto w-full max-w-[1200px] px-4 sm:px-6 xl:px-0'
+
 const SORTS: { value: SortOption; label: string }[] = [
-  { value: 'recent', label: 'Mais recentes' },
+  { value: 'recent', label: 'Listados recentemente' },
   { value: 'price_asc', label: 'Menor preço' },
   { value: 'price_desc', label: 'Maior preço' },
+]
+
+const TABS: { value: CatalogTab; label: string }[] = [
+  { value: 'all', label: 'Todos os NFTs' },
+  { value: 'new', label: 'Novos lançamentos' },
+  { value: 'trending', label: 'Em alta' },
 ]
 
 type CatalogSearch = {
   q?: string
   network?: Network
+  category?: Category
+  tab?: CatalogTab
   minPrice?: string
   maxPrice?: string
   sort: SortOption
@@ -26,6 +38,7 @@ function texto(v: unknown) {
   if (typeof v === 'number') return String(v)
   return typeof v === 'string' && v.trim() ? v.trim() : undefined
 }
+
 function preco(v: unknown) {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN
   return Number.isFinite(n) && n >= 0 ? String(n) : undefined
@@ -43,9 +56,12 @@ export const Route = createFileRoute('/')({
   validateSearch: (input: Partial<CatalogSearch> & SearchSchemaInput): CatalogSearch => {
     const raw = input as Record<string, unknown>
     const page = Number(raw.page)
+    const tab = TABS.some((t) => t.value === raw.tab) && raw.tab !== 'all' ? (raw.tab as CatalogTab) : undefined
     return {
       q: texto(raw.q),
       network: NETWORKS.includes(raw.network as Network) ? (raw.network as Network) : undefined,
+      category: CATEGORIES.includes(raw.category as Category) ? (raw.category as Category) : undefined,
+      tab,
       minPrice: preco(raw.minPrice),
       maxPrice: preco(raw.maxPrice),
       sort: SORTS.some((s) => s.value === raw.sort) ? (raw.sort as SortOption) : 'recent',
@@ -63,166 +79,191 @@ function CatalogPage() {
   const nfts = useQuery(nftListOptions(search))
 
   function atualizar(patch: Partial<CatalogSearch>) {
-    void navigate({ search: (prev) => ({ ...prev, ...patch, page: 1 }), replace: true })
+    void navigate({ search: (prev) => ({ ...prev, ...patch, page: 1 }), replace: true, resetScroll: false })
   }
+
   function irParaPagina(page: number) {
-    void navigate({ search: (prev) => ({ ...prev, page }) })
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    void navigate({ search: (prev) => ({ ...prev, page }), resetScroll: false })
+    document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  // Busca com debounce
-  const [termo, setTermo] = useState(search.q ?? '')
-  useEffect(() => setTermo(search.q ?? ''), [search.q])
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (termo.trim() !== (search.q ?? '')) atualizar({ q: termo.trim() || undefined })
-    }, 350)
-    return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [termo])
-
-  function aplicarPreco(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const f = new FormData(e.currentTarget)
-    atualizar({ minPrice: preco(f.get('minPrice')), maxPrice: preco(f.get('maxPrice')) })
+  const filtros: FiltersValue = {
+    category: search.category,
+    network: search.network,
+    minPrice: search.minPrice,
+    maxPrice: search.maxPrice,
   }
-
-  const temFiltro = !!(search.q || search.network || search.minPrice || search.maxPrice)
+  const facets = nfts.data?.facets
+  const abaAtual = search.tab ?? 'all'
   const totalPages = nfts.data ? Math.max(1, Math.ceil(nfts.data.total / nfts.data.pageSize)) : 1
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-6">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold">Explore NFTs</h1>
-        <p className="text-[#CFB28C]">Descubra, colecione e negocie ativos digitais.</p>
-      </header>
+    <div className="pb-8">
+      <Hero />
 
-      <section aria-label="Filtros" className="grid gap-3 rounded-xl bg-[#241612] p-4 md:grid-cols-[1fr_auto_auto_auto]">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="busca" className="text-xs text-[#CFB28C]">Buscar</label>
-          <input
-            id="busca"
-            type="search"
-            value={termo}
-            onChange={(e) => setTermo(e.target.value)}
-            placeholder="Nome do NFT"
-            className="rounded-md border border-[#CFB28C]/30 bg-[#140D0A] px-3 py-2"
-          />
-        </div>
+      <section id="catalogo" aria-labelledby="catalogo-titulo" className={`${CONTAINER} mt-12 scroll-mt-24 lg:mt-16`}>
+        <h2 id="catalogo-titulo" className="sr-only">
+          Catálogo de NFTs
+        </h2>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="rede" className="text-xs text-[#CFB28C]">Rede</label>
-          <select
-            id="rede"
-            value={search.network ?? ''}
-            onChange={(e) => atualizar({ network: (e.target.value || undefined) as Network | undefined })}
-            className="rounded-md border border-[#CFB28C]/30 bg-[#140D0A] px-3 py-2"
-          >
-            <option value="">Todas</option>
-            {NETWORKS.map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
-        </div>
+        <div className="grid gap-10 lg:grid-cols-[310px_1fr] xl:gap-12">
+          <aside aria-label="Filtros do catálogo" className="hidden space-y-5 lg:block">
+            <CatalogFilters
+              key={`${search.minPrice}-${search.maxPrice}`}
+              value={filtros}
+              facets={facets}
+              onChange={atualizar}
+            />
+            <FeaturedNft />
+          </aside>
 
-        <form
-          key={`${search.minPrice ?? ''}-${search.maxPrice ?? ''}`}
-          onSubmit={aplicarPreco}
-          className="flex items-end gap-2"
-          aria-label="Faixa de preço"
-        >
-          <div className="flex flex-col gap-1">
-            <label htmlFor="min" className="text-xs text-[#CFB28C]">Mín. (ETH)</label>
-            <input id="min" name="minPrice" type="number" min="0" step="any" defaultValue={search.minPrice}
-              className="w-24 rounded-md border border-[#CFB28C]/30 bg-[#140D0A] px-2 py-2" />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+              <div role="group" aria-label="Tipo de listagem" className="flex gap-6 overflow-x-auto">
+                {TABS.map((t) => {
+                  const ativo = abaAtual === t.value
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      aria-pressed={ativo}
+                      onClick={() => atualizar({ tab: t.value === 'all' ? undefined : t.value })}
+                      className={`relative whitespace-nowrap pb-2 text-sm transition-colors hover:text-primary ${
+                        ativo ? 'text-primary after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary' : ''
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="flex items-center gap-3 pb-2">
+                <MobileFilters value={filtros} facets={facets} onChange={atualizar} />
+                <label htmlFor="ordenar" className="text-sm">
+                  Ordenar por:
+                </label>
+                <select
+                  id="ordenar"
+                  value={search.sort}
+                  onChange={(e) => atualizar({ sort: e.target.value as SortOption })}
+                  className="cursor-pointer rounded-sm bg-transparent text-sm"
+                >
+                  {SORTS.map((s) => (
+                    <option key={s.value} value={s.value} className="bg-card">
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {search.q && (
+              <div className="mt-4 flex items-center gap-2 text-sm">
+                <span>
+                  Resultados para <strong className="text-primary">"{search.q}"</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => atualizar({ q: undefined })}
+                  aria-label="Limpar busca"
+                  className="grid size-6 place-items-center rounded-sm hover:bg-secondary"
+                >
+                  <FiX className="size-4" aria-hidden="true" />
+                </button>
+              </div>
+            )}
+
+            <p className="sr-only" aria-live="polite">
+              {nfts.data ? `${nfts.data.total} NFT${nfts.data.total === 1 ? '' : 's'} encontrado${nfts.data.total === 1 ? '' : 's'}` : ''}
+            </p>
+
+            {nfts.isPending ? (
+              <ul
+                className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 lg:grid-cols-3 lg:gap-x-8 lg:gap-y-12"
+                aria-busy="true"
+                aria-label="Carregando NFTs"
+              >
+                {Array.from({ length: 9 }, (_, i) => (
+                  <li key={i}>
+                    <NftCardSkeleton />
+                  </li>
+                ))}
+              </ul>
+            ) : nfts.isError ? (
+              <div role="alert" className="mt-6 space-y-3 bg-card p-6 text-center">
+                <p>Não foi possível carregar os NFTs.</p>
+                <button
+                  type="button"
+                  onClick={() => nfts.refetch()}
+                  className="rounded-sm bg-primary px-4 py-2 font-bold text-primary-foreground"
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            ) : nfts.data.items.length === 0 ? (
+              <div className="mt-6 bg-card p-6 text-center text-muted-foreground">
+                Nenhum NFT encontrado com esses filtros.
+              </div>
+            ) : (
+              <ul
+                className={`mt-6 grid grid-cols-2 gap-x-4 gap-y-8 transition-opacity sm:gap-x-6 lg:grid-cols-3 lg:gap-x-8 lg:gap-y-12 ${
+                  nfts.isPlaceholderData ? 'opacity-60' : ''
+                }`}
+              >
+                {nfts.data.items.map((nft, i) => (
+                  <li key={nft.id}>
+                    <NftCard nft={nft} priority={i < 3} />
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {nfts.data && totalPages > 1 && (
+              <nav aria-label="Paginação" className="mt-12 flex justify-center gap-2 sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => irParaPagina(search.page - 1)}
+                  disabled={search.page <= 1}
+                  aria-label="Página anterior"
+                  className="grid size-8 place-items-center rounded-sm border border-primary/40 disabled:opacity-40"
+                >
+                  <FiChevronLeft className="size-4" aria-hidden="true" />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+                  const atual = p === search.page
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => irParaPagina(p)}
+                      aria-current={atual ? 'page' : undefined}
+                      aria-label={`Página ${p}`}
+                      className={`grid size-8 place-items-center rounded-sm border text-sm ${
+                        atual ? 'border-primary bg-primary font-bold text-primary-foreground' : 'border-primary/40'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                })}
+                <button
+                  type="button"
+                  onClick={() => irParaPagina(search.page + 1)}
+                  disabled={search.page >= totalPages}
+                  aria-label="Próxima página"
+                  className="grid size-8 place-items-center rounded-sm border border-primary/40 disabled:opacity-40"
+                >
+                  <FiChevronRight className="size-4" aria-hidden="true" />
+                </button>
+              </nav>
+            )}
           </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="max" className="text-xs text-[#CFB28C]">Máx. (ETH)</label>
-            <input id="max" name="maxPrice" type="number" min="0" step="any" defaultValue={search.maxPrice}
-              className="w-24 rounded-md border border-[#CFB28C]/30 bg-[#140D0A] px-2 py-2" />
-          </div>
-          <button className="rounded-md border border-[#D28A4C] px-3 py-2 text-[#D28A4C]">Aplicar</button>
-        </form>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="ordem" className="text-xs text-[#CFB28C]">Ordenar</label>
-          <select
-            id="ordem"
-            value={search.sort}
-            onChange={(e) => atualizar({ sort: e.target.value as SortOption })}
-            className="rounded-md border border-[#CFB28C]/30 bg-[#140D0A] px-3 py-2"
-          >
-            {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
         </div>
       </section>
 
-      <div className="flex items-center justify-between text-sm text-[#CFB28C]">
-        <p aria-live="polite">
-          {nfts.data ? `${nfts.data.total} resultado${nfts.data.total === 1 ? '' : 's'}` : 'Carregando…'}
-        </p>
-        {temFiltro && (
-          <button
-            onClick={() => {
-              setTermo('')
-              void navigate({ search: { sort: search.sort }, replace: true })
-            }}
-            className="text-[#D28A4C] underline"
-          >
-            Limpar filtros
-          </button>
-        )}
-      </div>
-
-      {nfts.isPending ? (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
-          {Array.from({ length: 6 }, (_, i) => <li key={i}><NftCardSkeleton /></li>)}
-        </ul>
-      ) : nfts.isError ? (
-        <div role="alert" className="space-y-3 rounded-xl bg-[#241612] p-6 text-center">
-          <p>Não foi possível carregar os NFTs.</p>
-          <button onClick={() => nfts.refetch()} className="rounded-md bg-[#D28A4C] px-4 py-2 font-semibold text-[#140D0A]">
-            Tentar novamente
-          </button>
-        </div>
-      ) : nfts.data.items.length === 0 ? (
-        <div className="rounded-xl bg-[#241612] p-6 text-center text-[#CFB28C]">
-          Nenhum NFT encontrado com esses filtros.
-        </div>
-      ) : (
-        <ul
-          className={`grid grid-cols-1 gap-4 transition-opacity sm:grid-cols-2 lg:grid-cols-3 ${nfts.isPlaceholderData ? 'opacity-60' : ''}`}
-        >
-          {nfts.data.items.map((nft) => <li key={nft.id}><NftCard nft={nft} /></li>)}
-        </ul>
-      )}
-
-      {nfts.data && totalPages > 1 && (
-        <nav aria-label="Paginação" className="flex items-center justify-center gap-2">
-          <button
-            onClick={() => irParaPagina(search.page - 1)}
-            disabled={search.page <= 1}
-            className="rounded-md border border-[#CFB28C]/30 px-3 py-2 disabled:opacity-40"
-          >
-            Anterior
-          </button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-            <button
-              key={p}
-              onClick={() => irParaPagina(p)}
-              aria-current={p === search.page ? 'page' : undefined}
-              className={`size-10 rounded-md ${p === search.page ? 'bg-[#D28A4C] font-bold text-[#140D0A]' : 'border border-[#CFB28C]/30'}`}
-            >
-              {p}
-            </button>
-          ))}
-          <button
-            onClick={() => irParaPagina(search.page + 1)}
-            disabled={search.page >= totalPages}
-            className="rounded-md border border-[#CFB28C]/30 px-3 py-2 disabled:opacity-40"
-          >
-            Próxima
-          </button>
-        </nav>
-      )}
-    </main>
+      <PromoBanners />
+      <MintJournal />
+    </div>
   )
 }

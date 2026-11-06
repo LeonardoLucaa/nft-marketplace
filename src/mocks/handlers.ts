@@ -2,8 +2,8 @@ import { http, HttpResponse, delay } from 'msw'
 import {
   CATEGORIES,
   NETWORKS,
-  type Category,
   type CatalogTab,
+  type Category,
   type Network,
   type Nft,
   type NftFacets,
@@ -13,6 +13,7 @@ import { db } from './db'
 import { socketHandlers } from './socket'
 
 const PAGE_SIZE = 9
+const QTD_NOVOS = 4
 
 // Converte "1.19" em bigint com 18 casas, para comparar preços sem erro de float
 function toUnits(value: string): bigint {
@@ -48,6 +49,18 @@ export const handlers = [
     const sort = p.get('sort') ?? 'recent'
     const page = Math.max(1, Number(p.get('page') ?? 1))
 
+    // "Novos lançamentos" = os listados mais recentemente
+    const novos = new Set(
+      [...db.nfts]
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, QTD_NOVOS)
+        .map((n) => n.id),
+    )
+    const passaAba = (n: Nft) =>
+      tab === 'all' ||
+      (tab === 'new' && novos.has(n.id)) ||
+      (tab === 'trending' && (n.rare || !!n.oldPrice))
+
     // Filtros base (busca + preço): usados para as contagens das facetas
     const base = db.nfts.filter(
       (n) =>
@@ -60,7 +73,7 @@ export const handlers = [
       (n) =>
         (!network || n.network === network) &&
         (!category || n.category === category) &&
-        (tab === 'all' || (tab === 'rare' && n.rare) || (tab === 'onSale' && !!n.oldPrice)),
+        passaAba(n),
     )
 
     if (sort === 'price_asc') list = [...list].sort((a, b) => compareUnits(a.price, b.price))

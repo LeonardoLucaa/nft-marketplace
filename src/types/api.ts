@@ -1,11 +1,31 @@
 export type Network = "Ethereum" | "Polygon" | "Solana";
 export const NETWORKS: Network[] = ["Ethereum", "Polygon", "Solana"];
 
-export type Category = "Arte" | "Colecionáveis" | "Música" | "Fotografia" | "Games";
-export const CATEGORIES: Category[] = ["Arte", "Colecionáveis", "Música", "Fotografia", "Games"];
+export type Category =
+  | "Arte digital"
+  | "Fotografia"
+  | "Música"
+  | "Arte 3D"
+  | "Colecionáveis"
+  | "Generativa"
+  | "Jogos"
+  | "Assinaturas"
+  | "Utilidade";
+
+export const CATEGORIES: Category[] = [
+  "Arte digital",
+  "Fotografia",
+  "Música",
+  "Arte 3D",
+  "Colecionáveis",
+  "Generativa",
+  "Jogos",
+  "Assinaturas",
+  "Utilidade",
+];
 
 export type SortOption = "recent" | "price_asc" | "price_desc";
-export type CatalogTab = "all" | "rare" | "onSale";
+export type CatalogTab = "all" | "new" | "trending";
 
 export type Edition = { id: string; label: string; available: number };
 
