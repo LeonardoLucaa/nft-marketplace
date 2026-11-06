@@ -1,0 +1,76 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/roboto-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #140D0A;
+  --foreground: #F5F1EB;
+  --card: #241612;
+  --card-foreground: #F5F1EB;
+  --popover: #241612;
+  --popover-foreground: #F5F1EB;
+  --primary: #D28A4C;
+  --primary-foreground: #140D0A;
+  --secondary: #2F1E18;
+  --secondary-foreground: #F5F1EB;
+  --muted: #241612;
+  --muted-foreground: #CFB28C;
+  --accent: #2F1E18;
+  --accent-foreground: #F5F1EB;
+  --destructive: #E5484D;
+  --border: #3A271F;
+  --input: #3A271F;
+  --ring: #D28A4C;
+  --radius: 0.75rem;
+}
+
+@theme inline {
+  --font-sans: "Roboto Mono Variable", ui-monospace, monospace;
+  --font-mono: "Roboto Mono Variable", ui-monospace, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground font-sans antialiased; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+}
+
+/* Skeleton com shimmer (exigido no desafio) */
+.shimmer { position: relative; overflow: hidden; background: var(--card); }
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(245 241 235 / 0.07), transparent);
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .shimmer::after { animation: none; }
+}
