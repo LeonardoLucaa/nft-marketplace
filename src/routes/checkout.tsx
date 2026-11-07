@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { getToken } from '@/lib/session'
 import { codigoErro, erroDeCampo, mensagemErro } from '@/features/checkout/api'
 import { quoteOptions, useCriarPedido, useQuote } from '@/features/checkout/queries'
+import { useWallets } from '@/features/wallets/queries'
 import type { Quote } from '@/types/api'
 
 type CheckoutSearch = { cupom?: string }
@@ -41,6 +42,13 @@ function CheckoutPage() {
 
   const quote = useQuote(cupom)
   const criar = useCriarPedido()
+
+  // Carteira de pagamento: só as conectadas podem pagar; a principal vem pré-selecionada.
+  const carteiras = useWallets()
+  const [carteiraEscolhida, setCarteiraEscolhida] = useState<string | null>(null)
+  const conectadas = (carteiras.data ?? []).filter((w) => w.connected)
+  const carteira =
+    conectadas.find((w) => w.id === carteiraEscolhida) ?? conectadas.find((w) => w.primary) ?? conectadas[0]
 
   // Uma chave por cotação: retries/duplo clique reaproveitam; cotação nova gera chave nova.
   const quoteId = quote.data?.id
@@ -88,14 +96,15 @@ function CheckoutPage() {
   }
 
   function finalizar() {
-    if (!quote.data || criar.isPending || avisoPreco) return
+    if (!quote.data || !carteira || criar.isPending || avisoPreco) return
     criar.mutate(
-      { quoteId: quote.data.id, idempotencyKey },
+      { quoteId: quote.data.id, idempotencyKey, walletId: carteira.id },
       {
         onSuccess: (order) => navigate({ to: '/pedido/$id', params: { id: order.id }, replace: true }),
         onError: (err) => {
           const c = codigoErro(err)
           if (c === 'QUOTE_EXPIRED' || c === 'QUOTE_OUTDATED' || c === 'QUOTE_NOT_FOUND') void quote.refetch()
+          if (c?.startsWith('WALLET_')) void carteiras.refetch()
         },
       },
     )
@@ -123,7 +132,7 @@ function CheckoutPage() {
   }
 
   const q = quote.data
-  const bloqueado = criar.isPending || quote.isFetching || !!avisoPreco
+  const bloqueado = criar.isPending || quote.isFetching || !!avisoPreco || !carteira
 
   return (
     <main className="mx-auto grid max-w-5xl gap-8 p-6 md:grid-cols-[1fr_360px]">
@@ -188,6 +197,54 @@ function CheckoutPage() {
             </p>
           )}
         </form>
+
+        <fieldset className="space-y-2">
+          <legend className="text-sm text-[#CFB28C]">Carteira de pagamento</legend>
+          {carteiras.isPending && <div className="skeleton h-12 rounded-md" aria-busy="true" />}
+          {carteiras.isError && (
+            <p role="alert" className="text-sm text-red-400">
+              Não foi possível carregar suas carteiras.{' '}
+              <button type="button" onClick={() => void carteiras.refetch()} className="underline">
+                Tentar novamente
+              </button>
+            </p>
+          )}
+          {carteiras.data?.map((w) => (
+            <label
+              key={w.id}
+              className={`flex items-center gap-3 rounded-md border p-2 text-sm ${
+                w.connected ? 'cursor-pointer border-[#CFB28C]/30' : 'border-[#CFB28C]/10 opacity-60'
+              } ${carteira?.id === w.id ? 'border-[#D28A4C]' : ''}`}
+            >
+              <input
+                type="radio"
+                name="carteira"
+                value={w.id}
+                checked={carteira?.id === w.id}
+                disabled={!w.connected}
+                onChange={() => setCarteiraEscolhida(w.id)}
+              />
+              <span className="flex-1">
+                {w.label} · {w.network}
+                {w.primary ? ' · principal' : ''}
+                <span className="block font-mono text-xs text-[#CFB28C]">
+                  {w.address.slice(0, 6)}…{w.address.slice(-4)}
+                  {w.connected ? '' : ' (desconectada)'}
+                </span>
+              </span>
+            </label>
+          ))}
+          {carteiras.data && !carteira && (
+            <p role="alert" className="text-sm text-[#CFB28C]">
+              {carteiras.data.length === 0
+                ? 'Cadastre uma carteira para pagar.'
+                : 'Conecte uma carteira para pagar.'}{' '}
+              <Link to="/carteiras" className="text-[#D28A4C] underline">
+                Gerenciar carteiras
+              </Link>
+            </p>
+          )}
+        </fieldset>
 
         <dl className="space-y-2" aria-live="polite">
           <Linha label="Subtotal" valor={q.subtotal} />

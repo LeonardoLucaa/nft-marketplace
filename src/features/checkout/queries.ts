@@ -19,7 +19,8 @@ export function useQuote(cupom: string | null) {
 
 export function useCriarPedido() {
   return useMutation({
-    mutationFn: (v: { quoteId: string; idempotencyKey: string }) => criarPedido(v.quoteId, v.idempotencyKey),
+    mutationFn: (v: { quoteId: string; idempotencyKey: string; walletId: string }) =>
+      criarPedido(v.quoteId, v.idempotencyKey, v.walletId),
   })
 }
 

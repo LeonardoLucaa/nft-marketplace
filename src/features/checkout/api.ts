@@ -7,10 +7,10 @@ export async function criarCotacao(couponCode: string | null, signal?: AbortSign
   return data
 }
 
-export async function criarPedido(quoteId: string, idempotencyKey: string) {
+export async function criarPedido(quoteId: string, idempotencyKey: string, walletId: string) {
   const { data } = await api.post<Order>(
     '/orders',
-    { quoteId },
+    { quoteId, walletId },
     { headers: { 'Idempotency-Key': idempotencyKey } },
   )
   return data

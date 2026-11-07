@@ -137,3 +137,13 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   'session:auth': (token: string | null) => void
 }
+
+export type Wallet = {
+  id: string
+  label: string
+  address: string
+  network: Network
+  primary: boolean
+  connected: boolean
+  createdAt: string
+}

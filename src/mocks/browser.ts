@@ -3,6 +3,7 @@ import { handlers } from './handlers'
 import { socketHandlers } from './socket'
 import { authHandlers } from './auth-handlers'
 import { profileHandlers } from './profile-handlers'
+import { carteiraNoPedido, controlesCarteira, resetCarteiras, walletHandlers } from './wallet-handlers'
 import { cartHandlers } from './cart-handlers'
 import { controlesPedido, orderHandlers, resetPedidos } from './order-handlers'
 import { alterarPreco, pausarTicker } from './realtime'
@@ -12,7 +13,9 @@ export const worker = setupWorker(
   ...handlers,
   ...authHandlers,
   ...profileHandlers,
+  ...walletHandlers,
   ...cartHandlers,
+  carteiraNoPedido, // antes de orderHandlers: valida a carteira e deixa o resto seguir
   ...orderHandlers,
   ...socketHandlers,
 )
@@ -21,6 +24,7 @@ export const worker = setupWorker(
 ;(window as unknown as { __mock: unknown }).__mock = {
   reset: () => {
     resetPedidos()
+    resetCarteiras()
     resetDb()
     location.reload()
   },
@@ -32,6 +36,10 @@ export const worker = setupWorker(
   falharProximoPedido: () => {
     controlesPedido.falharProximo = true
     return 'o próximo pedido vai falhar'
+  },
+  falharProximaConexao: () => {
+    controlesCarteira.falharProximaConexao = true
+    return 'a próxima conexão de carteira vai falhar'
   },
   alterarPreco: (id: string, price: string) => alterarPreco(id, price),
   pausarTicker: () => pausarTicker(true),
