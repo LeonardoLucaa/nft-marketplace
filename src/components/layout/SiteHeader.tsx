@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
-import { FiLogIn, FiLogOut, FiMenu, FiSearch, FiShoppingCart, FiX } from 'react-icons/fi'
+import { FiLogIn, FiLogOut, FiMenu, FiSearch, FiShoppingCart, FiUser, FiX } from 'react-icons/fi'
 import { useLogout, useSession } from '@/features/auth/queries'
 import { useCart } from '@/features/cart/queries'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
@@ -103,7 +103,14 @@ export function SiteHeader() {
 
             {session ? (
               <div className="hidden items-center gap-3 sm:flex">
-                <span className="text-sm text-muted-foreground">Olá, {primeiroNome}</span>
+                <Link
+                  to="/perfil"
+                  aria-label="Meu perfil"
+                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
+                >
+                  <FiUser className="size-4" aria-hidden="true" />
+                  Olá, {primeiroNome}
+                </Link>
                 <button
                   type="button"
                   onClick={() => logout.mutate()}
@@ -154,6 +161,15 @@ export function SiteHeader() {
                       </Link>
                     )
                   })}
+                  {session && (
+                    <Link
+                      to="/perfil"
+                      onClick={() => setMenuAberto(false)}
+                      className="rounded-md px-3 py-3 text-base transition-colors hover:bg-secondary"
+                    >
+                      Meu perfil
+                    </Link>
+                  )}
                 </nav>
                 <div className="mt-4 border-t border-border pt-6">
                   {session ? (
