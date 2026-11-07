@@ -35,3 +35,27 @@ test('filtro aplicado sobrevive ao recarregar a página', async ({ page }) => {
   await expect(cardNft(catalogo, 'Golden Beat #207')).toBeVisible()
   await expect(cardNft(catalogo, 'Emerald Ape #042')).toHaveCount(0)
 })
+
+test('paginação navega entre as páginas do catálogo', async ({ page }) => {
+  await abrir(page, '/')
+  const catalogo = page.locator('#catalogo')
+  const paginacao = page.getByRole('navigation', { name: 'Paginação' })
+
+  // 36 NFTs, 9 por página = 4 páginas; na primeira não há "Página anterior"
+  await expect(paginacao.getByRole('button', { name: 'Página 4', exact: true })).toBeVisible()
+  await expect(paginacao.getByRole('button', { name: 'Página 1', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(paginacao.getByRole('button', { name: 'Página anterior' })).toHaveCount(0)
+  await expect(cardNft(catalogo, 'Emerald Ape #042')).toBeVisible()
+
+  await paginacao.getByRole('button', { name: 'Página 2', exact: true }).click()
+  await expect(page).toHaveURL(/page=2/)
+  await expect(cardNft(catalogo, 'Jade Sentinel #401')).toBeVisible()
+  await expect(cardNft(catalogo, 'Emerald Ape #042')).toHaveCount(0)
+  await expect(paginacao.getByRole('button', { name: 'Página 2', exact: true })).toHaveAttribute('aria-current', 'page')
+
+  // Na última página, some a seta "Próxima página"
+  await paginacao.getByRole('button', { name: 'Página 4', exact: true }).click()
+  await expect(page).toHaveURL(/page=4/)
+  await expect(cardNft(catalogo, 'Linen Earl #427')).toBeVisible()
+  await expect(paginacao.getByRole('button', { name: 'Próxima página' })).toHaveCount(0)
+})

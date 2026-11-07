@@ -62,7 +62,7 @@ O arquivo `.env` com `VITE_USE_MOCKS=true` já está versionado: a API e o Socke
 
 Para pagar é preciso ter uma carteira conectada: cadastre uma em **/carteiras** antes do checkout.
 
-O banco simulado fica no `localStorage` (chaves `kurio-msw-db-v4` e `kurio-msw-wallets-v1`). Para voltar ao estado inicial, rode `__mock.reset()` no console ou limpe o `localStorage` do site.
+O banco simulado fica no `localStorage` (chaves `kurio-msw-db-v5` e `kurio-msw-wallets-v1`). Para voltar ao estado inicial, rode `__mock.reset()` no console ou limpe o `localStorage` do site.
 
 ---
 

@@ -10,6 +10,9 @@ import { MintJournal, PromoBanners } from '@/features/nfts/HomeSections'
 import { CATEGORIES, NETWORKS, type CatalogTab, type Category, type Network, type SortOption } from '@/types/api'
 
 const CONTAINER = 'mx-auto w-full max-w-[1200px] px-4 sm:px-6 xl:px-0'
+const BOTAO_PAGINA =
+  'grid size-9 place-items-center rounded-sm border text-base transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+const BOTAO_PAGINA_INATIVO = 'border-primary/40 text-foreground hover:border-primary hover:bg-primary/10'
 
 const SORTS: { value: SortOption; label: string }[] = [
   { value: 'recent', label: 'Listados recentemente' },
@@ -220,16 +223,17 @@ function CatalogPage() {
             )}
 
             {nfts.data && totalPages > 1 && (
-              <nav aria-label="Paginação" className="mt-12 flex justify-center gap-2 sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => irParaPagina(search.page - 1)}
-                  disabled={search.page <= 1}
-                  aria-label="Página anterior"
-                  className="grid size-8 place-items-center rounded-sm border border-primary/40 disabled:opacity-40"
-                >
-                  <FiChevronLeft className="size-4" aria-hidden="true" />
-                </button>
+              <nav aria-label="Paginação" className="mt-12 flex flex-wrap justify-center gap-2.5 lg:justify-start">
+                {search.page > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => irParaPagina(search.page - 1)}
+                    aria-label="Página anterior"
+                    className={`${BOTAO_PAGINA} ${BOTAO_PAGINA_INATIVO}`}
+                  >
+                    <FiChevronLeft className="size-4" aria-hidden="true" />
+                  </button>
+                )}
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
                   const atual = p === search.page
                   return (
@@ -239,23 +243,24 @@ function CatalogPage() {
                       onClick={() => irParaPagina(p)}
                       aria-current={atual ? 'page' : undefined}
                       aria-label={`Página ${p}`}
-                      className={`grid size-8 place-items-center rounded-sm border text-sm ${
-                        atual ? 'border-primary bg-primary font-bold text-primary-foreground' : 'border-primary/40'
+                      className={`${BOTAO_PAGINA} ${
+                        atual ? 'border-primary bg-primary font-bold text-primary-foreground' : BOTAO_PAGINA_INATIVO
                       }`}
                     >
                       {p}
                     </button>
                   )
                 })}
-                <button
-                  type="button"
-                  onClick={() => irParaPagina(search.page + 1)}
-                  disabled={search.page >= totalPages}
-                  aria-label="Próxima página"
-                  className="grid size-8 place-items-center rounded-sm border border-primary/40 disabled:opacity-40"
-                >
-                  <FiChevronRight className="size-4" aria-hidden="true" />
-                </button>
+                {search.page < totalPages && (
+                  <button
+                    type="button"
+                    onClick={() => irParaPagina(search.page + 1)}
+                    aria-label="Próxima página"
+                    className={`${BOTAO_PAGINA} ${BOTAO_PAGINA_INATIVO}`}
+                  >
+                    <FiChevronRight className="size-4" aria-hidden="true" />
+                  </button>
+                )}
               </nav>
             )}
           </div>
