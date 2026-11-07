@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useNavigate, type SearchSchemaInput } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { getToken } from '@/lib/session'
 import { codigoErro, erroDeCampo, mensagemErro } from '@/features/checkout/api'
 import { quoteOptions, useCriarPedido, useQuote } from '@/features/checkout/queries'
 import type { Quote } from '@/types/api'
 
+type CheckoutSearch = { cupom?: string }
+
 export const Route = createFileRoute('/checkout')({
+  // Entrada opcional => <Link to="/checkout"> continua sem exigir search
+  validateSearch: (input: CheckoutSearch & SearchSchemaInput): CheckoutSearch => {
+    const raw = (input as Record<string, unknown>).cupom
+    return { cupom: typeof raw === 'string' && raw.trim() ? raw.trim().toUpperCase() : undefined }
+  },
   beforeLoad: ({ location }) => {
     if (!getToken()) throw redirect({ to: '/login', search: { redirect: location.href } })
   },
@@ -25,8 +32,9 @@ function Linha({ label, valor, destaque }: { label: string; valor: string; desta
 function CheckoutPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const [cupom, setCupom] = useState<string | null>(null)
-  const [cupomDigitado, setCupomDigitado] = useState('')
+  const search = Route.useSearch()
+  const [cupom, setCupom] = useState<string | null>(search.cupom ?? null)
+  const [cupomDigitado, setCupomDigitado] = useState(search.cupom ?? '')
   const [erroCupom, setErroCupom] = useState<string | null>(null)
   const [aplicando, setAplicando] = useState(false)
   const [avisoPreco, setAvisoPreco] = useState<{ de: string; para: string } | null>(null)
@@ -37,6 +45,16 @@ function CheckoutPage() {
   // Uma chave por cotação: retries/duplo clique reaproveitam; cotação nova gera chave nova.
   const quoteId = quote.data?.id
   const idempotencyKey = useMemo(() => (quoteId ? crypto.randomUUID() : ''), [quoteId])
+
+  // Cupom vindo da URL e inválido: descarta e mostra o erro no campo
+  useEffect(() => {
+    if (!quote.isError || !cupom) return
+    const erro = erroDeCampo(quote.error, 'couponCode')
+    if (erro) {
+      setErroCupom(erro)
+      setCupom(null)
+    }
+  }, [quote.isError, quote.error, cupom])
 
   // Detecta cotação nova com total diferente (preço mudou durante o checkout)
   const anterior = useRef<Quote | null>(null)
@@ -83,7 +101,7 @@ function CheckoutPage() {
     )
   }
 
-  if (quote.isPending) {
+  if (quote.isPending || (quote.isError && cupom && erroDeCampo(quote.error, 'couponCode'))) {
     return <main className="mx-auto max-w-3xl p-6"><div className="skeleton h-64 rounded-xl" aria-busy="true" /></main>
   }
 
