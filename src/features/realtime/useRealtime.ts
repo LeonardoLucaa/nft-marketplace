@@ -72,13 +72,15 @@ export function useRealtime() {
       const v = paraVersao(e.updatedAt)
       if (v !== null && jaViu(`nft:${e.id}`, v)) return
 
-      // página de detalhe
+      // página de detalhe: atualização imediata de preço e estoque
       qc.setQueryData(chaveDetalhe(e.id), (old: unknown) =>
         old && typeof old === 'object' ? { ...old, price: e.price, stock: e.stock } : old,
       )
+      // o evento não traz as edições: refaz o detalhe para a REST ser a fonte da verdade
+      qc.invalidateQueries({ queryKey: chaveDetalhe(e.id), refetchType: 'active' })
       // listas do catálogo (o patch ignora o detalhe, que não tem `items`)
       qc.setQueriesData({ queryKey: ['nfts', 'list'] }, (old: unknown) => patchLista(old, e))
-      // o carrinho/cotação dependem do preço: o servidor recalcula o resumo
+      // o carrinho/cotação dependem de preço e disponibilidade: o servidor recalcula o resumo
       qc.invalidateQueries({ queryKey: ['cart'] })
       qc.invalidateQueries({ queryKey: ['checkout', 'quote'] })
     }

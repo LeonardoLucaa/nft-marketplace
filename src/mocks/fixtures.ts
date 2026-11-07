@@ -40,6 +40,7 @@ function makeNft(s: Seed): Nft {
     attributes: s.attributes,
     rating: 4.8,
     ratingCount: 19,
+    stock: s.stock,
     editions: editions(s.stock),
     version: 1,
     createdAt: s.createdAt,

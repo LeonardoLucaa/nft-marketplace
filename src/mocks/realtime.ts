@@ -56,10 +56,29 @@ export function alterarPreco(id: string, price: string) {
   return `${id} agora custa ${price} ETH`
 }
 
+// Limite de cada edição (a edição "open" não tem limite próprio)
+const LIMITE_EDICAO: Record<string, number> = { '1-1': 1, '1-10': 10, '1-50': 50 }
+
 export function baixarEstoque(id: string, quantidade: number) {
   const nft = db.nfts.find((n) => n.id === id)
   if (!nft) return
-  nft.stock = Math.max(0, (nft.stock ?? 1) - quantidade)
+  const novoEstoque = Math.max(0, (nft.stock ?? 0) - quantidade)
+  nft.stock = novoEstoque
+  // Mantém a disponibilidade de cada edição coerente com o estoque total
+  nft.editions.forEach((e) => {
+    e.available = Math.min(LIMITE_EDICAO[e.id] ?? Infinity, novoEstoque)
+  })
+  nft.version += 1
+  // Ajusta carrinhos que ficaram acima do estoque e remove linhas zeradas
+  Object.keys(db.carts).forEach((chave) => {
+    db.carts[chave] = db.carts[chave]
+      .map((l) => {
+        if (l.nftId !== id) return l
+        const ed = nft.editions.find((e) => e.id === l.editionId)
+        return ed ? { ...l, quantity: Math.min(l.quantity, ed.available) } : l
+      })
+      .filter((l) => l.quantity > 0)
+  })
   save()
   publicarNft(id)
 }
