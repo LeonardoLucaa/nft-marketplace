@@ -195,14 +195,14 @@ Resultado local: **14 passed**.
 
 ## Lighthouse
 
-Medido no deploy de produção, perfil Mobile.
+Medido no deploy de produção, perfil Mobile, em aba anônima.
 
 | Categoria | Resultado |
 | --- | --- |
-| Performance | 95 |
+| Performance | 96 |
 | Acessibilidade | 100 |
 | Boas práticas | 100 |
-| SEO | 83 |
+| SEO | 100 |
 
 ---
 
