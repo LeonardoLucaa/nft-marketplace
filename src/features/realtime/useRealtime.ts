@@ -7,6 +7,9 @@ import type { NftUpdatedEvent, Order } from '@/types/api'
 
 const TERMINAL = new Set<Order['status']>(['confirmed', 'failed'])
 
+// Mesma chave usada por useNft em features/nfts/queries.ts
+const chaveDetalhe = (id: string) => ['nfts', 'detail', id] as const
+
 function paraVersao(valor: unknown): number | null {
   if (typeof valor === 'number') return valor
   if (typeof valor === 'string') {
@@ -29,7 +32,7 @@ function patchLista(data: unknown, e: NftUpdatedEvent): unknown {
 
 function reconciliar(qc: QueryClient) {
   // Só refaz o que está na tela (queries ativas); o resto fica stale
-  for (const key of [['nfts'], ['nft'], ['cart'], ['order']]) {
+  for (const key of [['nfts'], ['cart'], ['order']]) {
     qc.invalidateQueries({ queryKey: key, refetchType: 'active' })
   }
 }
@@ -69,10 +72,12 @@ export function useRealtime() {
       const v = paraVersao(e.updatedAt)
       if (v !== null && jaViu(`nft:${e.id}`, v)) return
 
-      qc.setQueryData(['nft', e.id], (old: unknown) =>
+      // página de detalhe
+      qc.setQueryData(chaveDetalhe(e.id), (old: unknown) =>
         old && typeof old === 'object' ? { ...old, price: e.price, stock: e.stock } : old,
       )
-      qc.setQueriesData({ queryKey: ['nfts'] }, (old: unknown) => patchLista(old, e))
+      // listas do catálogo (o patch ignora o detalhe, que não tem `items`)
+      qc.setQueriesData({ queryKey: ['nfts', 'list'] }, (old: unknown) => patchLista(old, e))
       // o carrinho/cotação dependem do preço: o servidor recalcula o resumo
       qc.invalidateQueries({ queryKey: ['cart'] })
       qc.invalidateQueries({ queryKey: ['checkout', 'quote'] })
